@@ -1,0 +1,185 @@
+---
+title: "HW2"
+output: html_document
+---
+
+#3주차강의노트정리
+
+```{}
+# install.packages(c('tidygraph', 'ggraph'))
+
+
+
+```
+
+
+````{}
+library('tidygraph')
+library('ggraph')
+
+
+```
+
+
+```{}
+
+feat <- read.csv("featuring.csv", na = "-", fileEncoding = "CP949", encoding = "UTF-8")
+
+head(feat)
+class(feat)
+
+fg <- as_tbl_graph(feat)
+class(fg)
+```
+
+#그림그리기
+```{}
+plot(fg)
+ggraph(fg) +  geom_node_point()  +  geom_edge_link()
+
+feat %>%
+  as_tbl_graph() %>%
+  ggraph(layout='kk') + 
+  geom_node_text(aes(label=name)) +
+  geom_edge_link(aes(start_cap = label_rect(node1.name), end_cap = label_rect(node2.name)))
+```
+
+#중심성
+한 노드와 연결된 다른 노드의 중요성까지 따져서 중심성을 계산한 결과가 고유벡터(eigenvector)
+
+```{}
+feat %>% 
+  as_tbl_graph() %>% 
+  mutate(bet= centrality_betweenness()) %>%
+  as_tibble %>%
+  arrange(desc(bet))
+  
+feat %>% 
+  as_tbl_graph() %>% 
+  mutate(bet=centrality_betweenness(),
+             clo=centrality_closeness()) %>%
+  as_tibble
+  
+feat %>% as_tbl_graph() %>%
+  with_graph(graph_mean_dist())
+
+```
+
+
+#친한 사람끼리는 더 친하다 
+수도권 전철 노선 SNA 진행하기
+
+```{}
+subway <- read.csv("subway.csv", na = "-", fileEncoding = "CP949", encoding = "UTF-8")
+
+head(subway)
+
+subway %>% as_tbl_graph() %>%
+  ggraph(layout='kk') + 
+  geom_edge_link(aes(color=line)) + 
+  geom_node_point(color='gray25', size=1)
+  
+subway %>% as_tbl_graph() %>%
+  mutate(eig=centrality_eigen()) %>%
+  as_tibble %>% arrange(desc(eig))
+
+```
+
+#서울시 승객이동 정보
+
+```{}
+metro <- read.csv("metro.csv", na = "-", fileEncoding = "CP949", encoding = "UTF-8")
+head(metro)
+
+```
+
+중심성 구하기
+```{}
+metro %>% as_tbl_graph() %>%
+  mutate(eig=centrality_eigen()) %>%
+  as_tibble %>% 
+  arrange(desc(eig)) 
+```
+
+인원을 가중치로 주기
+```{}
+metro %>% as_tbl_graph() %>%
+  mutate(eig=centrality_pagerank(weights=total)) %>%
+  as_tibble %>% 
+  arrange(desc(eig))
+
+```
+
+##프로배구 남자부 데이터를 돌려보자
+
+```{}
+k <- read.csv("kovo.csv", na = "-", fileEncoding = "CP949", encoding = "UTF-8")
+head(k)
+
+
+k_고교 <- k[,c(1, 2)]
+k_대학 <- k[,c(1, 3)]
+names(k_고교)[2] <- '학교'
+names(k_대학)[2] <- '학교'
+k <- rbind(k_고교, k_대학)
+
+k %>% as_tbl_graph() %>%
+  mutate(eig=centrality_eigen()) %>%
+  arrange(desc(eig)) %>%
+  as_tibble
+```
+
+페이지랭크 계산
+```{}
+k %>% as_tbl_graph() %>%
+  mutate(pr=centrality_pagerank()) %>%
+  arrange(desc(pr)) %>%
+  as_tibble
+
+```
+
+igraph 패키지 설치
+```{}
+# install.packages('igraph')
+library('igraph')
+
+
+```
+
+
+
+노드에서 선수만 분리
+
+```{}
+kg <- graph_from_data_frame(k)
+V(kg)$type <- bipartite_mapping(kg)$type
+km <- as_incidence_matrix(kg)
+km <- km %*% t(km)
+diag(km) <- 0
+
+km %>% as_tbl_graph()
+
+km %>% as_tbl_graph() %>%
+  mutate(pg=centrality_pagerank()) %>%
+  arrange(desc(pg)) %>%
+  as_tibble
+  
+km %>% as_tbl_graph() %>%
+  mutate(cm=group_infomap()) %>%
+  arrange(desc(cm)) %>%
+  as_tibble
+  
+km %>% as_tbl_graph() %>%
+  mutate(pg=centrality_pagerank(),
+         cm=group_infomap()) %>%
+  ggraph(layout='lgl') + 
+  geom_edge_link(aes(width=weight), alpha=.8) +
+  scale_edge_width(range=c(0.2, 2)) +
+  geom_node_point(aes(size=pg, color=as.factor(cm)))
+```
+
+
+
+
+
+
